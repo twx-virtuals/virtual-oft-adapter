@@ -10,6 +10,7 @@ import 'hardhat-contract-sizer'
 import '@nomiclabs/hardhat-ethers'
 import '@layerzerolabs/toolbox-hardhat'
 import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types'
+import "@nomicfoundation/hardhat-chai-matchers";
 
 import { EndpointId } from '@layerzerolabs/lz-definitions'
 

@@ -112,4 +112,147 @@ describe('MyOFTAdapter Test', function () {
         expect(finalBalanceAdapter).eql(tokensToSend)
         expect(finalBalanceB).eql(tokensToSend)
     })
+
+    it('should fail tosend a token from A address to B address via OFTAdapter/OFT when paused', async function () {
+        // Minting an initial amount of tokens to ownerA's address in the myOFTA contract
+        const initialAmount = ethers.utils.parseEther('100')
+        await token.mint(ownerA.address, initialAmount)
+
+        // Defining the amount of tokens to send and constructing the parameters for the send operation
+        const tokensToSend = ethers.utils.parseEther('1')
+
+        // Defining extra message execution options for the send operation
+        const options = Options.newOptions().addExecutorLzReceiveOption(200000, 0).toHex().toString()
+
+        const sendParam = [
+            eidB,
+            ethers.utils.zeroPad(ownerB.address, 32),
+            tokensToSend,
+            tokensToSend,
+            options,
+            '0x',
+            '0x',
+        ]
+
+        // Fetching the native fee for the token send operation
+        const [nativeFee] = await myOFTAdapter.quoteSend(sendParam, false)
+
+        // Approving the native fee to be spent by the myOFTA contract
+        await token.connect(ownerA).approve(myOFTAdapter.address, tokensToSend)
+
+        // Pausing the OFTAdapter
+        await myOFTAdapter.connect(ownerA).pause()
+
+        // Executing the send operation from myOFTA contract
+        await expect (myOFTAdapter.send(sendParam, [nativeFee, 0], ownerA.address, { value: nativeFee })).to.be.revertedWithCustomError(myOFTAdapter, 'EnforcedPause');  // This is the standard OpenZeppelin pause message
+
+    })
+    it('should send a token from A address to B address via OFTAdapter/OFT when unpaused', async function () {
+        // Minting an initial amount of tokens to ownerA's address in the myOFTA contract
+        const initialAmount = ethers.utils.parseEther('100')
+        await token.mint(ownerA.address, initialAmount)
+
+        // Defining the amount of tokens to send and constructing the parameters for the send operation
+        const tokensToSend = ethers.utils.parseEther('1')
+
+        // Defining extra message execution options for the send operation
+        const options = Options.newOptions().addExecutorLzReceiveOption(200000, 0).toHex().toString()
+
+        const sendParam = [
+            eidB,
+            ethers.utils.zeroPad(ownerB.address, 32),
+            tokensToSend,
+            tokensToSend,
+            options,
+            '0x',
+            '0x',
+        ]
+
+        // Fetching the native fee for the token send operation
+        const [nativeFee] = await myOFTAdapter.quoteSend(sendParam, false)
+
+        // Approving the native fee to be spent by the myOFTA contract
+        await token.connect(ownerA).approve(myOFTAdapter.address, tokensToSend)
+
+        // Pausing the OFTAdapter
+        await myOFTAdapter.connect(ownerA).pause()
+
+        // Executing the send operation from myOFTA contract
+        await expect (myOFTAdapter.send(sendParam, [nativeFee, 0], ownerA.address, { value: nativeFee })).to.be.revertedWithCustomError(myOFTAdapter, 'EnforcedPause');  // This is the standard OpenZeppelin pause message
+
+        await myOFTAdapter.connect(ownerA).unpause()
+
+        await myOFTAdapter.send(sendParam, [nativeFee, 0], ownerA.address, { value: nativeFee })
+
+        // Fetching the final token balances of ownerA and ownerB
+        const finalBalanceA = await token.balanceOf(ownerA.address)
+        const finalBalanceAdapter = await token.balanceOf(myOFTAdapter.address)
+        const finalBalanceB = await myOFTB.balanceOf(ownerB.address)
+
+        // Asserting that the final balances are as expected after the send operation
+        expect(finalBalanceA).eql(initialAmount.sub(tokensToSend))
+        expect(finalBalanceAdapter).eql(tokensToSend)
+        expect(finalBalanceB).eql(tokensToSend)
+    })
+    it('should not allow non-owner to pause', async function () {
+        // Minting an initial amount of tokens to ownerA's address in the myOFTA contract
+        // Pausing the OFTAdapter
+        await expect (myOFTAdapter.connect(ownerB).pause()).to.be.revertedWithCustomError(myOFTAdapter, 'OwnableUnauthorizedAccount');  // This is the standard OpenZeppelin pause message
+
+    })
+    it('should not allow non-owner to unpause', async function () {
+        // Minting an initial amount of tokens to ownerA's address in the myOFTA contract
+        // Pausing the OFTAdapter
+        await expect (myOFTAdapter.connect(ownerB).unpause()).to.be.revertedWithCustomError(myOFTAdapter, 'OwnableUnauthorizedAccount');  // This is the standard OpenZeppelin pause message
+
+    })
+    it('should not allow non-owner to fallbackWithdraw', async function () {
+        // Minting an initial amount of tokens to ownerA's address in the myOFTA contract
+        // Pausing the OFTAdapter
+        const initialAmount = ethers.utils.parseEther('100')
+
+        await expect (myOFTAdapter.connect(ownerB).fallbackWithdraw(ownerA.address, initialAmount)).to.be.revertedWithCustomError(myOFTAdapter, 'OwnableUnauthorizedAccount');  // This is the standard OpenZeppelin pause message
+
+    })
+    it('should allow owner to fallbackWithdraw', async function () {
+        // Minting an initial amount of tokens to ownerA's address in the myOFTA contract
+        const initialAmount = ethers.utils.parseEther('100')
+        await token.mint(ownerA.address, initialAmount)
+
+        // Defining the amount of tokens to send and constructing the parameters for the send operation
+        const tokensToSend = ethers.utils.parseEther('1')
+
+        // Defining extra message execution options for the send operation
+        const options = Options.newOptions().addExecutorLzReceiveOption(200000, 0).toHex().toString()
+
+        const sendParam = [
+            eidB,
+            ethers.utils.zeroPad(ownerB.address, 32),
+            tokensToSend,
+            tokensToSend,
+            options,
+            '0x',
+            '0x',
+        ]
+
+        // Fetching the native fee for the token send operation
+        const [nativeFee] = await myOFTAdapter.quoteSend(sendParam, false)
+
+        // Approving the native fee to be spent by the myOFTA contract
+        await token.connect(ownerA).approve(myOFTAdapter.address, tokensToSend)
+
+        // Executing the send operation from myOFTA contract
+        await myOFTAdapter.send(sendParam, [nativeFee, 0], ownerA.address, { value: nativeFee })
+
+        // fallbackWithdraw
+        await myOFTAdapter.connect(ownerA).fallbackWithdraw(ownerA.address, tokensToSend)
+
+        // Fetching the final token balances of ownerA and ownerB
+        const finalBalanceA = await token.balanceOf(ownerA.address)
+        const finalBalanceAdapter = await token.balanceOf(myOFTAdapter.address)
+
+        // Asserting that the final balances are as expected after the send operation
+        expect(finalBalanceA).eql(initialAmount)
+        expect(finalBalanceAdapter).eql(ethers.constants.Zero)
+    })
 })
